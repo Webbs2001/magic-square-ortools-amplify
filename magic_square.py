@@ -2,7 +2,7 @@ import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from amplify import FixstarsClient, Poly, Model, sum, equal_to, solve, decode_solution
+from amplify import FixstarsClient, Poly, Model, sum, equal_to, solve
 from dwave.system import DWaveSampler, EmbeddingComposite
 from ortools.constraint_solver import pywrapcp
 
@@ -73,8 +73,8 @@ def create_qubo(n):
     print("Adding constraints for diagonal sums...")
     bqm += equal_to(sum((v + 1) * x[i, i, v] for i in range(n) for v in range(n * n)), s)
     bqm += equal_to(sum((v + 1) * x[i, n - i - 1, v] for i in range(n) for v in range(n * n)), s)
-    print("Number of variables in QUBO: ", bqm.num_variables)
-    print("Number of constraints in QUBO: ", len(bqm))
+    print("Number of variables in QUBO: ", len(bqm.get_variables()))
+    print("Number of constraints in QUBO: ", len(bqm.constraints))
 
     return bqm, x
 
@@ -104,7 +104,7 @@ def solve_amplify(n, max_solutions):
         for i in range(n):
             for j in range(n):
                 for v in range(n * n):
-                    if decode_solution(sol.values[x[i, j, v]]):
+                    if sol.values[x[i, j, v]] == 1:
                         magic_square[i, j] = v + 1
         print(magic_square)
     
@@ -112,17 +112,16 @@ def solve_amplify(n, max_solutions):
 
 # Benchmarking
 def benchmark():
-    ns = [4, 5, 6, 7]
-    max_solutions_list = [1, 10, 100]
+    ns = [4, 5, 6]
+    max_solutions_list = [1, 10, 20, 50, 100]
 
-    results = {method: [] for method in ["OR-Tools", "MiniZinc", "Amplify", "D-Wave"]}
+    results = {method: [] for method in ["OR-Tools"]}
     for n in ns:
         for max_solutions in max_solutions_list:
             if n == 7 and max_solutions != 1:
                 continue
             print(f"Running for n={n}, max_solutions={max_solutions}...")
             results["OR-Tools"].append(solve_ortools(n, max_solutions))
-            results["Amplify"].append(solve_amplify(n, max_solutions))
 
     fig, ax = plt.subplots(figsize=(10, 6))
     x_labels = [f"{n}-{ms}" for n in ns for ms in max_solutions_list if not (n == 7 and ms != 1)]
@@ -130,7 +129,6 @@ def benchmark():
     width = 0.2
 
     ax.bar(x - 1.5 * width, results["OR-Tools"], width, label="OR-Tools")
-    ax.bar(x + 0.5 * width, results["Amplify"], width, label="Amplify")
 
     ax.set_xlabel("n - max_solutions")
     ax.set_ylabel("Execution time (s)")
